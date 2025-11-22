@@ -1,0 +1,130 @@
+<!-- frontend/index.html -->
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>Email Template Prototype Tester</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <style>
+    body { font-family: Arial, Helvetica, sans-serif; margin:18px; color:#222; }
+    label { display:block; margin-top:10px; font-weight:600; }
+    input[type="text"], input[type="color"], textarea { width:100%; padding:8px; box-sizing:border-box; margin-top:6px; }
+    textarea { height:140px; font-family:monospace; }
+    .row { display:flex; gap:12px; }
+    .col { flex:1; }
+    button { margin-top:12px; padding:10px 16px; font-weight:700; cursor:pointer; }
+    iframe { width:100%; height:450px; border:1px solid #ddd; margin-top:8px; }
+    .small { font-size:13px; color:#666; }
+    .logos-area { height:120px; }
+    @media (max-width:640px) { .row { flex-direction:column; } iframe { height:320px; } }
+  </style>
+</head>
+<body>
+  <h2>Email Template Generator — Prototype Tester</h2>
+
+  <label>Topic</label>
+  <input id="topic" type="text" placeholder="e.g. Zoho premium expired" value="Zoho premium expired">
+
+  <label>Mail details (short)</label>
+  <input id="mailDetails" type="text" placeholder="e.g. Please make payment immediately" value="Please make payment immediately">
+
+  <div class="row">
+    <div class="col">
+      <label>Primary color</label>
+      <input id="primaryColor" type="color" value="#D83B01">
+    </div>
+    <div class="col">
+      <label>Secondary color</label>
+      <input id="secondaryColor" type="color" value="#F3F4F6">
+    </div>
+    <div class="col">
+      <label>Accent color</label>
+      <input id="accentColor" type="color" value="#FF6B6B">
+    </div>
+  </div>
+
+  <label style="margin-top:12px;">Approved logos (JSON array). Example:
+  <span class="small">[{"name":"Zoho logo","url":"https://.../zoho%20logo.png"}]</span></label>
+  <textarea id="approvedLogos" class="logos-area">[{"name":"Zoho logo","url":"https://pub-75cc0f33e91642d886ed4f7aaa225686.r2.dev/extracted_images/zoho%20logo.png"}]</textarea>
+
+  <button id="generateBtn">Generate Email & Landing Page</button>
+
+  <h3>Generated Email HTML</h3>
+  <textarea id="emailHtml" readonly></textarea>
+
+  <h3>Rendered Email Preview</h3>
+  <iframe id="emailPreview"></iframe>
+
+  <h3>Generated Landing Page HTML</h3>
+  <textarea id="landingHtml" readonly></textarea>
+
+  <h3>Rendered Landing Page Preview</h3>
+  <iframe id="landingPreview"></iframe>
+
+  <script>
+    const backendUrl = (location.hostname === "localhost" || location.hostname === "127.0.0.1")
+      ? "http://localhost:5000"
+      : ""; // Set backend URL if hosted elsewhere
+
+    document.getElementById("generateBtn").addEventListener("click", async () => {
+      const topic = document.getElementById("topic").value;
+      const mailDetails = document.getElementById("mailDetails").value;
+      const primaryColor = document.getElementById("primaryColor").value;
+      const secondaryColor = document.getElementById("secondaryColor").value;
+      const accentColor = document.getElementById("accentColor").value;
+      let approvedLogosText = document.getElementById("approvedLogos").value;
+
+      let approved_logos = [];
+      try {
+        approved_logos = JSON.parse(approvedLogosText);
+      } catch (e) {
+        alert("Approved logos field must be valid JSON. Example:\n[{\"name\":\"Zoho logo\",\"url\":\"https://...png\"}]");
+        return;
+      }
+
+      const payload = {
+        topic: topic,
+        mail_details: mailDetails,
+        primary_color: primaryColor,
+        secondary_color: secondaryColor,
+        accent_color: accentColor,
+        approved_logos: approved_logos
+      };
+
+      const endpoint = (backendUrl || window.prompt("Enter backend URL (e.g. http://example.com): http://localhost:5000")) + "/generate-email";
+
+      try {
+        document.getElementById("generateBtn").disabled = true;
+        document.getElementById("generateBtn").textContent = "Generating…";
+
+        const resp = await fetch(endpoint, {
+          method: "POST",
+          headers: {"Content-Type": "application/json"},
+          body: JSON.stringify(payload)
+        });
+
+        const data = await resp.json();
+        if (!resp.ok) {
+          const err = data.error || JSON.stringify(data);
+          alert("Error from backend:\n" + err);
+          console.error(data);
+          return;
+        }
+
+        document.getElementById("emailHtml").value = data.email_html;
+        document.getElementById("emailPreview").srcdoc = data.email_html;
+
+        document.getElementById("landingHtml").value = data.landing_page_html;
+        document.getElementById("landingPreview").srcdoc = data.landing_page_html;
+
+      } catch (err) {
+        alert("Request failed: " + err.message);
+        console.error(err);
+      } finally {
+        document.getElementById("generateBtn").disabled = false;
+        document.getElementById("generateBtn").textContent = "Generate Email & Landing Page";
+      }
+    });
+  </script>
+</body>
+</html>
